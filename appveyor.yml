@@ -24,7 +24,7 @@ install:
   - bootstrap.bat
 
 test_script:
-  - activate hasal-env
+  - scripts\activate.bat
   - python scripts\cv2_checker.py
   - python runtest.py -h
 
