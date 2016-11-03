@@ -1,0 +1,7 @@
+wait("chrome_urlbar.png")
+paste("chrome_urlbar.png", "https://www.facebook.com/groups/mozhasalimage")
+type(Key.ENTER)
+setAutoWaitTimeout(10)
+wait("1469153290603.png")
+click(Pattern("1469153311665.png").targetOffset(0, 200))
+mouseMove(Location(0, 0))

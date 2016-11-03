@@ -4,7 +4,7 @@
 By default it captures the entire desktop.
 """
 
-################################ LICENSE BLOCK ################################
+# ############################### LICENSE BLOCK ################################
 # Copyright (c) 2011 Nathan Vegdahl
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,6 +32,10 @@ import optparse
 import subprocess
 import platform
 import re
+from logConfig import get_logger
+
+
+logger = get_logger(__name__)
 
 # Easy-to-change defaults for users
 DEFAULT_FPS = 15
@@ -72,16 +76,16 @@ vcodecs = {}
 vcodecs["h264"] = ["-vcodec", "libx264", "-preset", "medium", "-cqp", "0"]
 vcodecs["h264_fast"] = ["-vcodec", "libx264", "-preset", "ultrafast", "-g", "15", "-crf", "0", "-pix_fmt", "yuv444p"]
 vcodecs["mpeg4"] = ["-vcodec", "mpeg4", "-qmax", "1", "-qmin", "1"]
-#vcodecs["xvid"] = ["-vcodec", "libxvid", "-b", "40000kb"]
+# vcodecs["xvid"] = ["-vcodec", "libxvid", "-b", "40000kb"]
 vcodecs["huffyuv"] = ["-vcodec", "huffyuv"]
 vcodecs["vp8"] = ["-vcodec", "libvpx", "-qmax", "2", "-qmin", "1"]
 vcodecs["theora"] = ["-vcodec", "libtheora", "-b", "40000kb"]
-#vcodecs["dirac"] = ["-vcodec", "libschroedinger", "-b", "40000kb"]
+# vcodecs["dirac"] = ["-vcodec", "libschroedinger", "-b", "40000kb"]
 
 # Audio codec lines
 acodecs = {}
 acodecs["pcm"] = ["-acodec", "pcm_s16le"]
-#acodecs["flac"] = ["-acodec", "flac"]
+# acodecs["flac"] = ["-acodec", "flac"]
 acodecs["vorbis"] = ["-acodec", "libvorbis", "-ab", "320k"]
 acodecs["mp3"] = ["-acodec", "libmp3lame", "-ab", "320k"]
 acodecs["aac"] = ["-acodec", "libfaac", "-ab", "320k"]
@@ -108,6 +112,7 @@ def capture_line(fps, x, y, height, width, display_device, audio_device, video_c
     line += ["-threads", str(threads), str(output_path)]
     return line
 
+
 def screenshot_capture_line(fps, x, y, height, width, display_device, video_codec, output_path):
     """ Returns the command line to capture video (no audio), in a list form
         compatible with Popen.
@@ -126,6 +131,7 @@ def screenshot_capture_line(fps, x, y, height, width, display_device, video_code
     line += vcodecs[video_codec]
     line += ["-threads", str(threads), str(output_path)]
     return line
+
 
 def video_capture_line(fps, x, y, height, width, display_device, video_codec, output_path):
     """ Returns the command line to capture video (no audio), in a list form
@@ -188,6 +194,19 @@ def get_desktop_resolution():
                 return (int(wh[0]), int(wh[1]))
 
 
+def get_mac_os_display_channel():
+    if platform.system().lower() == "darwin":
+        proc = subprocess.Popen([DEFAULT_RECORDING_CMD, '-f', DEFAULT_FORCE_FORMAT, '-list_devices', 'true', '-i', '""'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        stdout = proc.stdout.read()
+        if "Capture screen" in stdout:
+            display_channel = stdout[stdout.index('Capture screen') - 3]
+            if display_channel in [str(i) for i in range(10)]:
+                return display_channel
+        return "1"
+    else:
+        return ":0.0"
+
+
 def get_window_position_and_size():
     """ Prompts the user to click on a window, and returns the window's
         position and size.
@@ -234,7 +253,7 @@ def get_default_output_path():
     """
     filenames = glob.glob("out_????" + DEFAULT_FILE_EXTENSION)
     for i in range(1, 9999):
-        name = "out_" + str(i).rjust(4,'0') + DEFAULT_FILE_EXTENSION
+        name = "out_" + str(i).rjust(4, '0') + DEFAULT_FILE_EXTENSION
         tally = 0
         for f in filenames:
             if f == name:
@@ -256,13 +275,13 @@ def print_codecs():
     a.sort()
     v.sort()
 
-    print("Audio codecs:")
+    logger.info("Audio codecs:")
     for i in a:
-        print("  " + str(i))
+        logger.info("  " + str(i))
 
-    print("Video codecs:")
+    logger.info("Video codecs:")
     for i in vcodecs:
-        print("  " + str(i))
+        logger.info("  " + str(i))
 
 if __name__ == "__main__":
     # Set up default file path
@@ -330,13 +349,13 @@ if __name__ == "__main__":
     try:
         dres = get_desktop_resolution()
     except:
-        print("Error: unable to determine desktop resolution.")
+        logger.error("unable to determine desktop resolution.")
         raise
 
     # Capture values
     fps = opts.fps
     if opts.capture_window:
-        print("Please click on a window to capture.")
+        logger.error("Please click on a window to capture.")
         x, y, width, height = get_window_position_and_size()
     else:
         if opts.xy:
@@ -377,8 +396,8 @@ if __name__ == "__main__":
     if (x + width) > dres[0] or (y + height) > dres[1]:
         parser.error("specified capture area is off screen.")
 
-    print (width)
-    print (height)
+    logger.info(width)
+    logger.info(height)
 
     # Capture!
     if not opts.no_audio:
@@ -386,5 +405,4 @@ if __name__ == "__main__":
     else:
         proc = subprocess.Popen(video_capture_line(fps, x, y, width, height, opts.display_device, opts.vcodec, out_path)).wait()
 
-    print("Done!")
-
+    logger.info("Done!")

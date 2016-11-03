@@ -1,0 +1,34 @@
+version: 1.0.{build}
+branches:
+  only:
+    - new_bootstrap
+clone_depth: 5
+skip_tags: true
+skip_commits:
+  message: /SkipCI.*/
+
+cache:
+  - sikulixsetup-1.1.0.jar
+  - ffmpeg-20160527-git-d970f7b-win32-static.7z
+build: false
+
+environment:
+  matrix:
+    - PYTHON_VERSION: 2.7
+      MINICONDA: C:\Miniconda
+
+init:
+  - "ECHO %PYTHON_VERSION% %MINICONDA%"
+
+install:
+  - bootstrap.bat
+
+test_script:
+  - activate hasal-env
+  - python scripts\cv2_checker.py
+  - python runtest.py -h
+
+on_success:
+  - cmd: echo Build successfully!
+on_failure:
+  - cmd: echo Build Failed!

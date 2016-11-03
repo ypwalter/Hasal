@@ -1,0 +1,76 @@
+language: python
+
+
+cache:
+  - pip
+
+
+matrix:
+  include:
+  # Linux
+    # Test tidy
+    - env: GOAL=test-tidy
+      os: linux
+      dist: trusty
+      python: 2.7
+      install:
+        - ./mach
+      script:
+        - ./mach test-tidy --no-progress --all
+    # Test bootstrap-linux
+    - env: GOAL=bootstrap
+      os: linux
+      dist: trusty
+      python: 2.7
+      sudo: required
+      install:
+        # enable universe repository
+        - sudo add-apt-repository "deb http://archive.ubuntu.com/ubuntu $(lsb_release -sc) main universe"
+        - sudo apt-get update
+        - ./mach
+      script:
+        - ./bootstrap-linux.sh
+        - cat bootstrap.log
+        # Run "runtest.py -h" for testing Hasal can works basically ...
+        - source .env-python/bin/activate
+        - python runtest.py -h
+  # Mac OS X
+    # Test tidy
+    - env: GOAL=test-tidy
+      os: osx
+      sudo: required
+      language: generic
+      osx_image: xcode7.3
+      before_install:
+        - brew update
+        - which python || brew install python
+        - pip install virtualenv
+      install:
+        - ./mach
+      script:
+        - ./mach test-tidy --no-progress --all
+    # Test bootstrap-mac
+    - env: GOAL=bootstrap
+      os: osx
+      sudo: required
+      language: generic
+      osx_image: xcode7.3
+      before_install:
+        - brew update
+        - which python || brew install python
+        - pip install virtualenv
+      script:
+        - ./bootstrap-mac.sh
+        - cat bootstrap.log
+        # Run "runtest.py -h" for testing Hasal can works basically ...
+        - source .env-python/bin/activate
+        - python runtest.py -h
+
+
+
+branches:
+  only:
+    - master
+
+notifications:
+  email: false

@@ -1,3 +1,4 @@
+.DS_Store
 .idea
 .env/
 .env-*/
@@ -6,7 +7,10 @@ env-*/
 output
 snapshot
 result.json
+_virtualenv
 *~
+*.log
+HasalServer.log.*
 
 # 3rd party files
 thirdParty/*

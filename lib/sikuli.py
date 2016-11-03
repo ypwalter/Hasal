@@ -3,28 +3,38 @@ import sys
 
 
 class Sikuli():
+
+    def __init__(self, run_sikulix_cmd_path, hasal_dir):
+        self.run_sikulix_cmd_str = run_sikulix_cmd_path + " -r "
+        self.hasal_dir = hasal_dir
+
     # hasal_dir:  DEFAULT_HASAL_DIR in environment.py
     def set_syspath(self, hasal_dir):
         library_path = os.path.join(hasal_dir, "lib", "sikuli")
         sys.path.append(library_path)
         return library_path
 
-    # sikuli_dir: you must specify where runsikulix or runsikulix.exe is
-    # hasal_dir:  DEFAULT_HASAL_DIR in environment.py
     # test_name:  test_(browser)_(test_name)
     # timestamp:  please pass in the integer generated from main python for folder record
-    def run(self, sikuli_dir, hasal_dir, test_name, timestamp="0000000000", test_url=""):
-        script_path = os.path.join(hasal_dir, "tests")
-        if test_url == "":
-            cmd = sikuli_dir + "/runsikulix -r " + script_path + "/" + test_name + ".sikuli --args " + str(
-                timestamp) + " " + self.set_syspath(hasal_dir)
+    def run_test(self, script_name, timestamp="0000000000", test_target="", script_dp=None, args_list=[]):
+        if script_dp:
+            script_dir_path = script_dp + os.sep + script_name + ".sikuli"
         else:
-            cmd = sikuli_dir + "/runsikulix -r " + script_path + "/" + test_name + ".sikuli --args " + str(
-                timestamp) + " " + self.set_syspath(hasal_dir) + " " + test_url
+            script_path = os.path.join(self.hasal_dir, "tests")
+            script_dir_path = script_path + os.sep + script_name + ".sikuli"
+        args = [str(timestamp), self.set_syspath(self.hasal_dir)]
+        if test_target != "":
+            args.append(test_target)
+        args.extend(args_list)
+        return self.run_sikulix_cmd(script_dir_path, args)
+
+    def run_sikulix_cmd(self, script_dir_path, args_list=[]):
+        args_str = " ".join(args_list)
+        cmd = self.run_sikulix_cmd_str + script_dir_path + " --args " + args_str
         return os.system(cmd)
 
-    def close_browser(self, browser, env):
-        script_path = os.path.join(env.hasal_dir, "lib", "sikuli")
-        cmd = env.sikuli_path + "/runsikulix -r " + script_path + "/closeBrowser.sikuli --args " + browser + " " + self.set_syspath(env.hasal_dir)
-        os.system(cmd)
-
+    def close_browser(self, browser):
+        script_path = os.path.join(self.hasal_dir, "lib", "sikuli")
+        script_dir_path = script_path + "/closeBrowser.sikuli"
+        args_list = [browser, self.set_syspath(self.hasal_dir)]
+        self.run_sikulix_cmd(script_dir_path, args_list)

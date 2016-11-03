@@ -1,128 +1,231 @@
-__author__ = 'shako'
+"""runtest.
+
+Usage:
+  runtest.py re <suite.txt> [--online] [--online-config=<str>] [--max-run=<int>] [--max-retry=<int>] [--keep-browser] [--calc-si] [--profiler=<str>] [--comment=<str>] [--advance] [--waveform] [--perfherder-revision=<str>] [--perfherder-pkg-platform=<str>]
+  runtest.py pt <suite.txt> [--online] [--online-config=<str>] [--max-run=<int>] [--max-retry=<int>] [--keep-browser] [--calc-si] [--profiler=<str>] [--comment=<str>] [--advance] [--waveform] [--perfherder-revision=<str>] [--perfherder-pkg-platform=<str>]
+  runtest.py (-h | --help)
+
+Options:
+  -h --help                       Show this screen.
+  --max-run=<int>                 Test run max no [default: 30].
+  --max-retry=<int>               Test failed retry max no [default: 15].
+  --keep-browser                  Keep the browser open after test script executed
+  --calc-si                       Calculate the speed index (si) and perceptual speed index (psi)
+  --profiler=<str>                Enabled profiler, current support profiler:avconv,geckoprofiler,harexport,chrometracing,fxall,justprofiler,mitmdump,fxtracelogger [default: avconv]
+  --online                        Result will be transfer to server, calculated by server
+  --online-config=<str>           Online server config [default: svrConfig.json]
+  --comment=<str>                 Tag the comment on this test [default: <today>]
+  --advance                       Only for expert user
+  --waveform                      Waveform generated after case finished
+  --perfherder-revision=<str>     Revision for upload to perfherder
+  --perfherder-pkg-platform=<str> Package platform for upload to perfherder
+
+"""
 import os
-import subprocess
+import json
+import shutil
 import platform
-import argparse
-from argparse import ArgumentDefaultsHelpFormatter
+import subprocess
+from lib.helper.uploadAgentHelper import UploadAgent
+from docopt import docopt
+from lib.common.logConfig import get_logger
 
+DEFAULT_RESULT_FP = "./result.json"
 DEFAULT_TEST_FOLDER = "tests"
-DEFAULT_MAX_RUN = 40
-DEFAULT_MAX_RETRY = 15
+DEFAULT_RUNNING_STAT_FN = "stat.json"
 DEFAULT_ERROR_CASE_LIST = "error_case_list.txt"
-DEFAULT_SIKULI_STAT_FN = "sikuli_stat.txt"
-DEFAULT_TIME_LIST_COUNTER_FN = "time_list_counter.txt"
-
-if platform.system().lower() == "windows":
-    DEFAULT_TASK_KILL_CMD = "taskkill /f /t /im "
-else:
-    DEFAULT_TASK_KILL_CMD = "pkill "
 
 if platform.system().lower() == "linux":
     DEFAULT_TASK_KILL_LIST = ["avconv", "firefox", "chrome"]
-    DEFAULT_EDITOR_CMD = "gedit "
+    DEFAULT_TASK_KILL_CMD = "pkill "
+    DEFAULT_EDITOR_CMD = "cat "
 elif platform.system().lower() == "windows":
+    DEFAULT_TASK_KILL_CMD = "taskkill /f /t /im "
     DEFAULT_TASK_KILL_LIST = ["ffmpeg", "firefox.exe", "chrome.exe"]
-    DEFAULT_EDITOR_CMD = "notepad "
+    DEFAULT_EDITOR_CMD = "type "
 else:
     DEFAULT_TASK_KILL_LIST = ["ffmpeg", "firefox", "chrome"]
-    DEFAULT_EDITOR_CMD = "/Applications/Notes.app/Contents/MacOS/Notes"
+    DEFAULT_TASK_KILL_CMD = "pkill "
+    DEFAULT_EDITOR_CMD = "open -e "
+
 
 class RunTest(object):
-    def __init__(self, enable_profiler, disable_avconv, close_browser, enable_chrome_tracing):
-        self.enable_profiler = enable_profiler
-        self.disable_avconv = disable_avconv
-        self.close_browser = close_browser
-        self.enable_chrome_tracing = enable_chrome_tracing
+    def __init__(self, **kwargs):
+        self.logger = get_logger(__file__, kwargs['advance'])
+        for variable_name in kwargs.keys():
+            self.logger.debug("Set variable name: %s with value: %s" % (variable_name, kwargs[variable_name]))
+            setattr(self, variable_name, kwargs[variable_name])
 
     def kill_legacy_process(self):
         for process_name in DEFAULT_TASK_KILL_LIST:
             cmd_str = DEFAULT_TASK_KILL_CMD + process_name
             os.system(cmd_str)
 
+    def clean_up_output_data(self):
+        # clean output folder
+        output_dir = os.path.join(os.getcwd(), 'output')
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir)
 
-    def loop_suite(self, input_suite_fp, input_max_retry, input_max_run):
-        with open(input_suite_fp) as input_suite_fh:
-            for read_line in input_suite_fh.readlines():
-                test_case_name = read_line.strip()
-                test_case_fp = os.path.join(os.getcwd(), DEFAULT_TEST_FOLDER, test_case_name + ".py")
-                if os.path.exists(test_case_fp):
-                    test_case_module_name = DEFAULT_TEST_FOLDER + "." + test_case_name
-                    test_env = os.environ.copy()
-                    test_env['ENABLE_PROFILER'] = self.enable_profiler
-                    test_env['ENABLE_CHROME_TRACING'] = self.enable_chrome_tracing
-                    test_env['DISABLE_AVCONV'] = self.disable_avconv
-                    test_env['CLOSE_BROWSER'] = self.close_browser
-                    current_run = 0
-                    current_retry = 0
-                    while current_run < input_max_run:
-                        self.kill_legacy_process()
-                        print "The counter is %d and the retry_counter is %d" % (current_run, current_retry)
-                        subprocess.call(["python", "-m", "unittest", test_case_module_name], env=test_env)
-                        with open(DEFAULT_SIKULI_STAT_FN) as sikuli_stat_fh:
-                            sikuli_stat = int(sikuli_stat_fh.read())
-                            if sikuli_stat == 0:
-                                with open(DEFAULT_TIME_LIST_COUNTER_FN) as time_list_counter_fh:
-                                    current_run = int(time_list_counter_fh.read())
+    def get_test_env(self, **kwargs):
+        result = os.environ.copy()
+        result['PROFILER'] = self.profiler
+        result['KEEP_BROWSER'] = str(int(self.keep_browser))
+        result['ENABLE_ONLINE'] = str(int(self.online))
+        result['ONLINE_CONFIG'] = self.online_config
+        result['ENABLE_ADVANCE'] = str(int(self.advance))
+        result['CALC_SI'] = str(int(self.calc_si))
+        result['ENABLE_WAVEFORM'] = str(int(self.waveform))
+        if self.perfherder_revision:
+            result['PERFHERDER_REVISION'] = self.perfherder_revision
+        else:
+            result['PERFHERDER_REVISION'] = ""
+        if self.perfherder_pkg_platform:
+            result['PERFHERDER_PKG_PLATFORM'] = self.perfherder_pkg_platform
+        else:
+            result['PERFHERDER_PKG_PLATFORM'] = ""
+        for variable_name in kwargs.keys():
+            result[variable_name] = str(kwargs[variable_name])
+        return result
+
+    def suite_content_parser(self, input_line):
+        # in suite file, use comma to distinguish test case script, pre-execute script, post-execute script
+        result = {}
+        data_array = input_line.split(",")
+        result[data_array[0]] = {}
+        if len(data_array) == 3:
+            if data_array[1].strip():
+                result[data_array[0]]["PRE_SCRIPT_PATH"] = data_array[1].strip()
+            if data_array[2].strip():
+                result[data_array[0]]["POST_SCRIPT_PATH"] = data_array[2].strip()
+        elif len(data_array) == 2:
+            if data_array[1].strip():
+                result[data_array[0]]["PRE_SCRIPT_PATH"] = data_array[1].strip()
+        return result
+
+    def loop_test(self, test_case_module_name, test_name, test_env, current_run=0, current_retry=0):
+        return_result = {"ip": None, "video_path": None, "test_name": None}
+        while current_run < self.max_run:
+            self.logger.info("The counter is %d and the retry counter is %d" % (current_run, current_retry))
+            try:
+                if self.online and os.path.exists(DEFAULT_RESULT_FP):
+                    os.remove(DEFAULT_RESULT_FP)
+                run_result = self.run_test(test_case_module_name, test_env)
+                if run_result:
+                    if "sikuli_stat" in run_result and int(run_result['sikuli_stat']) == 0 and "fps_stat" in run_result and int(run_result['fps_stat']) == 0:
+                        if self.online:
+                            # Online mode handling
+                            upload_result = self.upload_agent_obj.upload_result(DEFAULT_RESULT_FP)
+                            if upload_result:
+                                self.logger.info("===== upload success =====")
+                                self.logger.info(upload_result)
+                                return_result['ip'] = upload_result['ip']
+                                return_result['video_path'] = upload_result['video']
+                                return_result['test_name'] = test_name
+                                self.logger.info("===== upload success =====")
+                                if "current_test_times" in upload_result:
+                                    current_run = upload_result["current_test_times"]
+                                    self.max_run = upload_result['config_test_times']
+                                else:
+                                    current_run += 1
                             else:
-                                current_retry+=1
-                                with open(DEFAULT_ERROR_CASE_LIST, "a+") as error_case_fh:
-                                    error_case_fh.write(test_case_name + "\n")
-                                if current_retry > input_max_retry:
-                                    break
+
+                                current_run += 1
+                        else:
+                            if "time_list_counter" in run_result:
+                                current_run = int(run_result['time_list_counter'])
+                            else:
+                                current_run += 1
+                    else:
+                        current_retry += 1
                 else:
-                    print "Test case[%s] not exist!" % test_case_fp
+                    current_retry += 1
+            except Exception as e:
+                print "Exception happend during running test!"
+                print e.message, e.args
+                current_retry += 1
+            if current_retry >= self.max_retry:
+                break
+        return return_result
 
-    def run(self, input_suite_fp, input_max_retry, input_max_run):
-        self.loop_suite(input_suite_fp, input_max_retry, input_max_run)
-        os.system(DEFAULT_EDITOR_CMD + " end.txt" )
+    def run_test(self, test_case_module_name, test_env):
+        self.kill_legacy_process()
 
+        self.logger.debug("========== Environment data ======")
+        self.logger.debug(test_env)
+        self.logger.debug("========== Environment data ======")
+        self.logger.info(" ".join(["python", "-m", "unittest", test_case_module_name]))
+        subprocess.call(["python", "-m", "unittest", test_case_module_name], env=test_env)
+
+        if os.path.exists(DEFAULT_RUNNING_STAT_FN):
+            with open(DEFAULT_RUNNING_STAT_FN) as stat_fh:
+                stat_dict = json.load(stat_fh)
+                return stat_dict
+        else:
+            self.logger.error("test could raise exception during execution!!")
+            return None
+
+    def loop_suite(self, type, input_suite_fp):
+        response_result_data = []
+        with open(input_suite_fp) as input_suite_fh:
+            for tmp_line in input_suite_fh.read().splitlines():
+                if tmp_line:
+                    case_data = self.suite_content_parser(tmp_line)
+                    self.logger.info("======= case_data  ========")
+                    self.logger.info(case_data)
+                    self.logger.info("======= case_data  ========")
+                    test_case = case_data.keys()[0]
+                    case_data[test_case]["MAX_RUN"] = self.max_run
+
+                    test_case_module_name = ""
+                    if type == "pt":
+                        test_case_module_name = DEFAULT_TEST_FOLDER + "." + "test_pilot_run"
+                        case_data[test_case]["SIKULI_SCRIPT_PATH"] = test_case
+                        case_data[test_case]["TEST_SCRIPT_PY_DIR_PATH"] = os.sep.join(test_case_module_name.split(".")[:-1])
+                        test_env = self.get_test_env(**case_data[test_case])
+                        if test_case.endswith(os.sep):
+                            test_name = test_case.split(os.sep)[-2].split(".")[0]
+                        else:
+                            test_name = test_case.split(os.sep)[-1].split(".")[0]
+                    else:
+                        test_case_fp = test_case.replace(".", os.sep) + ".py"
+                        test_name = test_case.split(".")[-1]
+                        case_data[test_case]["TEST_SCRIPT_PY_DIR_PATH"] = os.sep.join(test_case.split(".")[:-1])
+                        if os.path.exists(test_case_fp):
+                            test_case_module_name = test_case
+                            test_env = self.get_test_env(**case_data[test_case])
+                        else:
+                            self.logger.error("Test script [%s] is not exist!" % test_case_fp)
+                            test_env = None
+                    if self.online and self.perfherder_revision:
+                        self.upload_agent_obj.upload_register_data(input_suite_fp, type)
+                    response_result_data.append(self.loop_test(test_case_module_name, test_name, test_env))
+            if self.online:
+                self.upload_agent_obj.upload_videos(response_result_data)
+                self.clean_up_output_data()
+
+    def run(self, type, input_suite_fp):
+        if self.online:
+            self.upload_agent_obj = UploadAgent(svr_config_fp=self.online_config, test_comment=self.test_comment)
+        self.loop_suite(type, input_suite_fp)
+        os.system(DEFAULT_EDITOR_CMD + " end.txt")
 
 
 def main():
-    arg_parser = argparse.ArgumentParser(description='Run test suite script',
-                                         formatter_class=ArgumentDefaultsHelpFormatter)
-    arg_parser.add_argument('--enable_profiler', action='store_true', dest='enable_profiler_flag', default=False,
-                            help='enable profiler', required=False)
-    arg_parser.add_argument('--enable_chrome_tracing', action='store_true', dest='enable_chrome_tracing_flag',
-                            default=False, help='enable chrome tracing', required=False)
-    arg_parser.add_argument('--disable_avconv', action='store_true', dest='disable_avconv_flag', default=False,
-                            help='disable avconv', required=False)
-    arg_parser.add_argument('--keep_browser', action='store_false', dest='keep_browser_flag', default=True,
-                            help='keep browser', required=False)
-    arg_parser.add_argument('-i', action='store', dest='input_suite_fp', default=None,
-                            help='specify suite file path', required=True)
-    arg_parser.add_argument('--max_retry', action='store', dest='input_max_retry', default=DEFAULT_MAX_RETRY,
-                            help='specify max retry count', required=False)
-    arg_parser.add_argument('--max_run', action='store', dest='input_max_run', default=DEFAULT_MAX_RUN,
-                            help='specify max retry run', required=False)
-    args = arg_parser.parse_args()
-
-    enable_profiler_flag = "0"
-    enable_chrome_tracing_flag = "0"
-    disable_avconv_flag = "0"
-    keep_browser_flag = "1"
-
-    if args.enable_profiler_flag:
-        enable_profiler_flag = "1"
-
-    if args.enable_chrome_tracing_flag:
-        enable_chrome_tracing_flag = "1"
-
-    if args.disable_avconv_flag:
-        disable_avconv_flag = "1"
-
-    if args.keep_browser_flag:
-        keep_browser_flag = "0"
-
-    run_test_obj = RunTest(enable_profiler_flag, disable_avconv_flag, keep_browser_flag, enable_chrome_tracing_flag)
-
-    if args.input_max_retry:
-        input_max_retry = int(args.input_max_retry)
-    if args.input_max_run:
-        input_max_run = int(args.input_max_run)
-
-    run_test_obj.run(args.input_suite_fp, input_max_retry, input_max_run)
-
+    arguments = docopt(__doc__)
+    run_test_obj = RunTest(profiler=arguments['--profiler'], keep_browser=arguments['--keep-browser'],
+                           max_run=int(arguments['--max-run']),
+                           max_retry=int(arguments['--max-retry']), online=arguments['--online'],
+                           online_config=arguments['--online-config'], advance=arguments['--advance'],
+                           test_comment=arguments['--comment'], calc_si=arguments['--calc-si'],
+                           waveform=arguments['--waveform'], perfherder_revision=arguments['--perfherder-revision'],
+                           perfherder_pkg_platform=arguments['--perfherder-pkg-platform'])
+    if arguments['pt']:
+        run_test_obj.run("pt", arguments['<suite.txt>'])
+    elif arguments['re']:
+        run_test_obj.run("re", arguments['<suite.txt>'])
+    else:
+        run_test_obj.run("re", arguments['<suite.txt>'])
 
 if __name__ == '__main__':
     main()
