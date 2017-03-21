@@ -13,5 +13,5 @@ ff.clickBar()
 ff.enterLink(sys.argv[3])
 sleep(5)
 gd.wait_for_loaded()
-
+type("a")
 gd.deFoucsContentWindow()
