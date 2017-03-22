@@ -9,9 +9,7 @@ import browser
 import time
 
 com = common.General()
-
-Settings.ActionLogs = 0
-Settings.InfoLogs = 0
+com.infolog_enable(0)
 chrome = browser.Chrome()
 gs = gsheet.gSheet()
 chrome.clickBar()
