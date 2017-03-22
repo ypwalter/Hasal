@@ -117,6 +117,7 @@ class Environment(object):
     TEST_TARGET_ID_100R_NUMBER_ENCHAR_IMAGE_10TABS = "1YZ68juV1D4uL16Off0RYZbXvhYSuG90KgNXbmZJIO1o"
     TEST_TARGET_ID_100R_NUMBER_UTF8CHAR_10TABS = "1__DF-ilgSIhkQrotazWSQZvlOc3UBISCCaDNbxPLLN8"
     TEST_TARGET_ID_100R_DIFFERENT_COLOR_10TABS = "1CPBaq71I-8FoGsbC8VETFWZdS_FdVFYPA63Tn53Kuko"
+    TEST_TARGET_ID_10PAGE_NUMBER_ENCHAR = "1DhwFaB-HwIwBXqi5k20FrCyoRWXQzc8STkfAomaAgRQ"
 
     TEST_TARGET_GOOGLE_DRIVE = "https://drive.google.com/open?id="
     TEST_TARGET_ID_SLIDE_1_PAGE_BLANK = "1wdPUMvSWJN8mJnMhcpJ8Q3vXTU6x2N3Mw3iAqHC8dhU"
@@ -171,8 +172,8 @@ class Environment(object):
         self.video_output_sample_2_fp = os.path.join(self.DEFAULT_VIDEO_OUTPUT_DIR, self.output_name + "_sample_2.mkv")
         self.img_sample_dp = os.path.join(self.DEFAULT_IMAGE_SAMPLE_DIR, self.output_name)
         self.img_output_dp = os.path.join(self.DEFAULT_IMAGE_OUTPUT_DIR, self.output_name)
-        self.img_output_sample_1_fn = self.output_name + "_sample_1.jpg"
-        self.img_output_sample_2_fn = self.output_name + "_sample_2.jpg"
+        self.img_output_sample_1_fn = self.output_name + "_sample_1.bmp"
+        self.img_output_sample_2_fn = self.output_name + "_sample_2.bmp"
         self.img_output_crop_fn = self.output_name + "_sample_3.jpg"
         self.profile_timing_json_fp = os.path.join(self.DEFAULT_PROFILE_OUTPUT_DIR, self.output_name + "_timing.json")
         self.profile_har_file_fp = os.path.join(self.DEFAULT_PROFILE_OUTPUT_DIR, self.output_name + ".har")
