@@ -42,6 +42,7 @@ from docopt import docopt
 from datetime import datetime
 from lib.helper.uploadAgentHelper import UploadAgent
 from lib.common.logConfig import get_logger
+from lib.helper.firefoxWebdriverProfileCreator import FirefoxWebdriverProfileCreator
 from lib.helper.firefoxProfileCreator import FirefoxProfileCreator
 
 DEFAULT_RESULT_FP = "./result.json"
@@ -69,11 +70,17 @@ class RunTest(object):
         for variable_name in kwargs.keys():
             self.logger.debug("Set variable name: %s with value: %s" % (variable_name, kwargs[variable_name]))
             setattr(self, variable_name, kwargs[variable_name])
+
         # loading settings
-        self.firefox_profile_creator = FirefoxProfileCreator()
-        self.firefox_settings_json = self._load_firefox_settings()
         self.settings_json = self._load_settings()
+        self.firefox_settings_json = self._load_firefox_settings()
+
         self.webdriver = self.settings_json.get('webdriver', {})
+        if self.webdriver['enable']:
+            self.firefox_profile_creator = FirefoxWebdriverProfileCreator()
+        else:
+            self.firefox_profile_creator = FirefoxProfileCreator()
+
         self.settings_prefs = self.firefox_settings_json.get('prefs', {})
         self.cookies_settings = self.firefox_settings_json.get('cookies', {})
         self.extensions_settings = self.firefox_settings_json.get('extensions', {})
