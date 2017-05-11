@@ -2,7 +2,6 @@ import os
 import json
 import time
 import copy
-import numpy as np
 from baseGenerator import BaseGenerator
 from ..common.imageUtil import generate_crop_data
 from ..common.imageUtil import crop_images
@@ -29,7 +28,7 @@ class FrameThroughputDctGenerator(BaseGenerator):
         'backward_search': [{'event': 'start', 'search_target': SEARCH_TARGET_VIEWPORT, 'fraction': 1.0}],
         'forward_search': [{'event': 'end', 'search_target': SEARCH_TARGET_VIEWPORT, 'fraction': 1.0}]}
 
-    def get_frame_throughput(self, result_list, input_image_list):
+    def get_frame_throughput(self, result_list, input_image_list, start_event_name, end_event_name):
         """
 
         @param result_list: the running_time_result after do comparison.
@@ -39,6 +38,8 @@ class FrameThroughputDctGenerator(BaseGenerator):
                 {'event': 'end', 'file': 'foo/bar/9527.bmp', 'time_seq': 5566.5566}, ...
             ]
         @param input_image_list:
+        @param start_event_name:
+        @param end_event_name:
         @return:
         """
 
@@ -48,10 +49,8 @@ class FrameThroughputDctGenerator(BaseGenerator):
             image_fn_list.sort(key=CommonUtil.natural_keys)
 
             # get start point and end point from input data
-            start_event = self.get_event_data_in_result_list(result_list,
-                                                             self.EVENT_START)
-            end_event = self.get_event_data_in_result_list(result_list,
-                                                           self.EVENT_END)
+            start_event = self.get_event_data_in_result_list(result_list, start_event_name)
+            end_event = self.get_event_data_in_result_list(result_list, end_event_name)
             start_event_fp = start_event.get('file', None)
             end_event_fp = end_event.get('file', None)
             if not start_event_fp or not end_event_fp:
@@ -64,7 +63,7 @@ class FrameThroughputDctGenerator(BaseGenerator):
 
             # calculate viewport variations between start point and end point
             # based on variation to determine if frame is freeze and result in frame throughput related values
-            start_target_fp = input_image_list[image_fn_list[start_event_index]][self.SEARCH_TARGET_VIEWPORT]
+            start_target_fp = input_image_list[image_fn_list[start_event_index]][CropRegion.VIEWPORT]
             start_target_time_seq = input_image_list[image_fn_list[start_event_index]]['time_seq']
             current_img_dct_array = convert_to_dct(start_target_fp)
             weight, height = current_img_dct_array.shape
@@ -77,7 +76,7 @@ class FrameThroughputDctGenerator(BaseGenerator):
                 image_fn = image_fn_list[img_index]
                 image_data = copy.deepcopy(input_image_list[image_fn])
                 previous_img_dct_array = copy.deepcopy(current_img_dct_array)
-                current_img_dct_array = convert_to_dct(image_data[self.SEARCH_TARGET_VIEWPORT])
+                current_img_dct_array = convert_to_dct(image_data[CropRegion.VIEWPORT])
                 mismatch_rate = np.sum(np.absolute(np.subtract(previous_img_dct_array, current_img_dct_array))) / (weight * height)
                 mismatch_rate_threshold = self.index_config.get('mismatch-rate-threshold', 0)
                 if mismatch_rate <= mismatch_rate_threshold:
@@ -226,7 +225,10 @@ class FrameThroughputDctGenerator(BaseGenerator):
         if self.compare_result.get('running_time_result', None):
             run_time, event_time_dict = self.calculate_runtime_base_on_event(self.compare_result['running_time_result'])
             self.compare_result.update({'run_time': run_time, 'event_time_dict': event_time_dict})
-            self.compare_result.update(self.get_frame_throughput(self.compare_result['running_time_result'], self.compare_result['merged_crop_image_list']))
+            self.compare_result.update(self.get_frame_throughput(self.compare_result['running_time_result'],
+                                                                 self.compare_result['merged_crop_image_list'],
+                                                                 self.EVENT_START,
+                                                                 self.EVENT_END))
 
         return self.compare_result
 

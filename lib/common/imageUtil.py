@@ -364,7 +364,8 @@ def parallel_compare_image(input_sample_data, input_image_data, input_settings, 
         if sample_dct is None:
             logger.error("Can't find the specify event[%s] in your sample data[%s]!" % (event_name, input_sample_data))
         else:
-            if event_name == 'first_paint':
+            skip_status_bar_event_name = {'first_paint', 'ft_end', 'il_end'}
+            if event_name in skip_status_bar_event_name:
                 skip_status_bar_fraction = input_settings['skip_status_bar_fraction']
             else:
                 skip_status_bar_fraction = 1.0
