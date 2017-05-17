@@ -44,6 +44,10 @@ class CropRegion(object):
     BROWSER = 'browser'
     TERMINAL = 'terminal'
 
+    # Fraction settings for simple height cut
+    FULL_REGION_FRACTION = 1.0
+    SKIP_STATUS_BAR_FRACTION = 0.95
+
 
 def crop_image(input_sample_fp, output_sample_fp, coord=[]):
     """
@@ -237,7 +241,19 @@ def compare_with_sample_image_multi_process(input_sample_data, input_image_data,
             {'event': 'start', 'file': 'foo/bar/9487.bmp', 'time_seq': 5487.9487},
             {'event': 'end', 'file': 'foo/bar/9527.bmp', 'time_seq': 5566.5566}, ...
         ]
-    @param input_sample_dp: input sample folder path
+    @param input_sample_data:
+    @param input_image_data:
+    @param input_settings: the comparing settings.
+            ex:
+            {
+                'default_fps',
+                'event_points',
+                'generator_name',
+                'skip_status_bar_fraction',
+                'exec_timestamp_list',
+                'threshold',
+                'search_margin'
+            }
     @return: the matching result list
     """
     manager = Manager()
@@ -253,6 +269,8 @@ def compare_with_sample_image_multi_process(input_sample_data, input_image_data,
     for p in p_list:
         p.join()
     map_result_list = sorted(map(dict, result_list), key=lambda k: k['time_seq'])
+
+    logger.info('The threshold in comparing settings: {}'.format(input_settings.get('threshold', None)))
     logger.info(map_result_list)
     if len(map_result_list) == 0:
         logger.info('Images miss with sample.')
@@ -345,6 +363,7 @@ def parallel_compare_image(input_sample_data, input_image_data, input_settings, 
     for event_point in input_settings['event_points'][search_direction]:
         event_name = event_point['event']
         search_target = event_point['search_target']
+        fraction = event_point['fraction']
 
         logger.info('Compare event [{event_name}] at [{search_target}]: {forward_backward} from {start} to {end}'
                     .format(event_name=event_name,
@@ -364,12 +383,6 @@ def parallel_compare_image(input_sample_data, input_image_data, input_settings, 
         if sample_dct is None:
             logger.error("Can't find the specify event[%s] in your sample data[%s]!" % (event_name, input_sample_data))
         else:
-            skip_status_bar_event_name = {'first_paint', 'ft_end', 'il_end'}
-            if event_name in skip_status_bar_event_name:
-                skip_status_bar_fraction = input_settings['skip_status_bar_fraction']
-            else:
-                skip_status_bar_fraction = 1.0
-
             while search_count < total_search_range:
                 if forward_search and img_index > end_index:
                     break
@@ -380,20 +393,29 @@ def parallel_compare_image(input_sample_data, input_image_data, input_settings, 
                 # transfer image index to image fn key
                 img_fn_key = image_fn_list[img_index]
                 if search_target in input_image_data[img_fn_key]:
-                    current_img_dct = convert_to_dct(input_image_data[img_fn_key][search_target], skip_status_bar_fraction)
-                    # assign customized threshold to comparison function if its in settings list
-                    threshold_value = input_settings.get('threshold', 0.0003)
-                    compare_result, diff_rate = compare_two_images(sample_dct, current_img_dct, threshold_value)
 
-                    # record the diff_rate
-                    diff_rate_list.append((event_name, img_fn_key, diff_rate))
+                    compare_result = False
+                    current_img_fp = input_image_data[img_fn_key][search_target]
+                    current_img_dct = convert_to_dct(current_img_fp, fraction)
+
+                    if current_img_dct is None:
+                        logger.error('Cannot convert the image [{image_file}] to DCT object for specify event[{event}]!'
+                                     .format(event=event_name, image_file=current_img_fp))
+                    else:
+                        # assign customized threshold to comparison function if its in settings list
+                        threshold_value = input_settings.get('threshold', 0.0003)
+                        compare_result, diff_rate = compare_two_images(sample_dct, current_img_dct, threshold_value)
+
+                        # record the diff_rate
+                        diff_rate_list.append((event_name, img_fn_key, diff_rate))
 
                     if compare_result:
+                        # when match (compare_result is True), check the current image index
                         logger.debug('Match {img_index} {img_filename}'.format(img_index=img_index,
                                                                                img_filename=img_fn_key))
-
                         if img_index == start_index:
-                            logger.debug(
+                            # when current index is the same as start index, it should expend the search range.
+                            logger.info(
                                 "Find matched file in boundary of search range, event point might out of search range.")
                             if forward_search:
                                 # if start index is already at boundary then break
@@ -410,7 +432,8 @@ def parallel_compare_image(input_sample_data, input_image_data, input_settings, 
                             # compare the same image, reset current image index from new start
                             img_index = start_index
                         else:
-                            # shift one index to avoid boundary matching two events at the same time
+                            # when current index is not start index, it really match!
+                            # shift index to avoid boundary if we want to match more than one events at the same time.
                             if forward_search:
                                 start_index = img_index - 1
                                 end_index = min(search_range[3] - 1, start_index + total_search_range)
@@ -432,6 +455,7 @@ def parallel_compare_image(input_sample_data, input_image_data, input_settings, 
                             img_index = start_index
                             break
                     else:
+                        # when not match (compare_result is False), compare next image
                         if forward_search:
                             img_index += 1
                         else:
@@ -444,6 +468,13 @@ def parallel_compare_image(input_sample_data, input_image_data, input_settings, 
 
 
 def compare_two_images(dct_obj_1, dct_obj_2, threshold):
+    """
+    Comparing two input DCT objects, if the difference rate less than threshold, then return True, otherwise False.
+    @param dct_obj_1: input DCT object
+    @param dct_obj_2: input DCT object
+    @param threshold: the comparing threshold
+    @return: (True/Fasle of match, the different rate of two input DCT objects)
+    """
     match = False
     # setup default diff rate
     diff_rate = 2
