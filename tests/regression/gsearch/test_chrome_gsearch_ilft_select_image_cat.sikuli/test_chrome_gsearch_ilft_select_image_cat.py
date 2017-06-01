@@ -29,7 +29,7 @@ class Case(basecase.SikuliInputLatencyCase):
         gs = gsearch.Gsearch()
 
         chrome.clickBar()
-        chrome.enterLink(sys.argv[3])
+        chrome.enterLink(self.INPUT_TEST_TARGET)
         gs.wait_gimage_loaded()
 
         sleep(2)

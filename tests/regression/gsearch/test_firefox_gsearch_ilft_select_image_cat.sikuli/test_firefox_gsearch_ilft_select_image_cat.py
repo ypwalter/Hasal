@@ -29,7 +29,7 @@ class Case(basecase.SikuliInputLatencyCase):
         gs = gsearch.Gsearch()
 
         ff.clickBar()
-        ff.enterLink(sys.argv[3])
+        ff.enterLink(self.INPUT_TEST_TARGET)
         gs.wait_gimage_loaded()
 
         sleep(2)
