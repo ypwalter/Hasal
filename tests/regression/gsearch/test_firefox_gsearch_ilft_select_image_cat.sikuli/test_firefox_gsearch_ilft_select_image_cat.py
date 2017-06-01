@@ -36,8 +36,8 @@ class Case(basecase.SikuliInputLatencyCase):
         gs.hover_result_image(1, 1)
 
         sleep(2)
-        capture_width = int(sys.argv[6])
-        capture_height = int(sys.argv[7])
+        capture_width = int(self.INPUT_RECORD_WIDTH)
+        capture_height = int(self.INPUT_RECORD_HEIGHT)
 
         t1 = time.time()
         capimg1 = capture(0, 0, capture_width, capture_height)
@@ -49,7 +49,8 @@ class Case(basecase.SikuliInputLatencyCase):
         sleep(2)
         t2 = time.time()
         capimg2 = capture(0, 0, capture_width, capture_height)
-        com.updateJson({'t1': t1, 't2': t2}, sys.argv[8])
+        com.updateJson({'t1': t1, 't2': t2}, self.INPUT_TIMESTAMP_FILE_PATH)
+
         shutil.move(capimg1, sample1_fp.replace(os.path.splitext(sample1_fp)[1], '.png'))
         shutil.move(capimg2, sample2_fp.replace(os.path.splitext(sample1_fp)[1], '.png'))
         com.set_mouse_delay()
