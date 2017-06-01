@@ -91,8 +91,11 @@ class InputLatencyFrameThroughputGenerator(BaseGenerator):
             history_result_data[self.env.test_name] = self.generate_update_result_for_combination(
                                                                    update_result, self.compare_result, run_time_dict)
 
+            # write fps to history_result_data
+            history_result_data['video-recording-fps'] = self.index_config['video-recording-fps']
+
             # dump to json file
-            with open(self.env.DEFAULT_TEST_RESULT, "wb") as fh: 
+            with open(self.env.DEFAULT_TEST_RESULT, "wb") as fh:
                 json.dump(history_result_data, fh, indent=2)
             self.status_recorder.record_current_status({self.status_recorder.STATUS_TIME_LIST_COUNTER: str(len(history_result_data[self.env.test_name]['time_list']))})
         else:
