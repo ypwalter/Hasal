@@ -26,8 +26,8 @@ class InputLatencyFrameThroughputGenerator(BaseGenerator):
     def __init__(self, index_config, exec_config, online_config, global_config, input_env):
         super(InputLatencyFrameThroughputGenerator, self).__init__(index_config, exec_config, online_config,
                                                                    global_config, input_env)
-        self.ft_generator = FrameThroughputDctGenerator()
-        self.il_generator = InputLatencyAnimationDctGenerator()
+        self.ft_generator = FrameThroughputDctGenerator(index_config, exec_config, online_config, global_config, input_env)
+        self.il_generator = InputLatencyAnimationDctGenerator(index_config, exec_config, online_config, global_config, input_env)
         self.compare_result = {}
 
     @staticmethod
@@ -38,7 +38,8 @@ class InputLatencyFrameThroughputGenerator(BaseGenerator):
         il_return_result = InputLatencyAnimationDctGenerator.generate_sample_result("InputLatencyAnimationDctGenerator",
                                                                                     input_sample_dict,
                                                                                     input_sample_index)
-        return ft_return_result.update(il_return_result)
+        ft_return_result.update(il_return_result)
+        return ft_return_result
 
     def crop_images_based_on_samplefiles(self, input_data):
         ft_input_image_list = self.ft_generator.crop_images_based_on_samplefiles(input_data)
@@ -55,7 +56,8 @@ class InputLatencyFrameThroughputGenerator(BaseGenerator):
         ft_compare_result['ft_run_time'] = ft_compare_result['run_time']
         del ft_compare_result['run_time']
 
-        self.compare_result = il_compare_result.update(ft_compare_result)
+        il_compare_result.update(ft_compare_result)
+        self.compare_result = il_compare_result
 
         return self.compare_result
 
