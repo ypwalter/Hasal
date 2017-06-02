@@ -44,8 +44,9 @@ class InputLatencyFrameThroughputGenerator(BaseGenerator):
     def crop_images_based_on_samplefiles(self, input_data):
         ft_input_image_list = self.ft_generator.crop_images_based_on_samplefiles(input_data)
         il_input_image_list = self.il_generator.crop_images_based_on_samplefiles(input_data)
+        ft_input_image_list.update(il_input_image_list)
 
-        return ft_input_image_list.update(il_input_image_list)
+        return ft_input_image_list
 
     def generate_result(self, input_data):
         il_compare_result = self.il_generator.generate_result(input_data)
@@ -56,8 +57,8 @@ class InputLatencyFrameThroughputGenerator(BaseGenerator):
         ft_compare_result['ft_run_time'] = ft_compare_result['run_time']
         del ft_compare_result['run_time']
 
-        il_compare_result.update(ft_compare_result)
-        self.compare_result = il_compare_result
+        ft_compare_result.update(il_compare_result)
+        self.compare_result = ft_compare_result
 
         return self.compare_result
 
